@@ -8,17 +8,46 @@ public struct AtomFeed<M: Metadata> {
   let author: String
   let baseURL: URL /// the base URL of your website, for example https://www.loopwerk.io
   let feedPath: String /// the relative path where this feed will be hosted, for example articles/feed.xml
+  let generator: (() -> ([String: String], Node?))?
   let items: [Item<M>]
   let summary: ((Item<M>) -> String?)?
 
-  public init(title: String, author: String, baseURL: URL, feedPath: String, items: [Item<M>], summary: ((Item<M>) -> String?)? = nil) {
-    self.title = title
-    self.author = author
-    self.baseURL = baseURL
-    self.feedPath = feedPath
-    self.items = items
-    self.summary = summary
+  public init(
+    title: String,
+    author: String,
+    baseURL: URL,
+    feedPath: String,
+    items: [Item<M>],
+    summary: ((Item<M>) -> String?)? = nil
+  ) {
+      self.init(
+        title: title,
+        author: author,
+        baseURL: baseURL,
+        feedPath: feedPath,
+        generator: { (["uri": "https://github.com/loopwerk/Saga"], "Saga") },
+        items: items,
+        summary: summary
+      )
   }
+    
+    public init(
+        title: String,
+        author: String,
+        baseURL: URL,
+        feedPath: String,
+        generator: (() -> ([String: String], Node?))?,
+        items: [Item<M>],
+        summary: ((Item<M>) -> String?)? = nil
+    ) {
+        self.title = title
+        self.author = author
+        self.baseURL = baseURL
+        self.feedPath = feedPath
+        self.generator = generator
+        self.items = items
+        self.summary = summary
+    }
 
   public func node() -> Node {
     feed(xmlns: "http://www.w3.org/2005/Atom") {
@@ -37,7 +66,10 @@ public struct AtomFeed<M: Metadata> {
       updated {
         Date()
       }
-      generator()
+        if let generator {
+            let (attributes, content) = generator()
+            Node.element("generator", attributes, content)
+        }
       items.map { item in
         entry {
           title {
@@ -77,10 +109,6 @@ public extension AtomFeed {
 
   func title(type: String = "text", children: () -> String) -> Node {
     .element("title", [ "type": type ], %children().asNode()%)
-  }
-
-  func generator() -> Node {
-    .element("generator", [ "uri": "https://github.com/loopwerk/Saga" ], "Saga")
   }
 
   func id(children: () -> String) -> Node {
